@@ -584,16 +584,25 @@ where
   #[inline(always)]
   pub const fn from_array<const U: usize>(array: [T; U]) -> Self
   where
-    N: ArraySize<ArrayType<MaybeUninit<T>> = [MaybeUninit<T>; U]>,
+    [T; U]: AssocArraySize<Size = N>,
   {
-    let ptr = array.as_slice().as_ptr();
-    mem::forget(array);
+    let array = ManuallyDrop::new(array);
+    let mut deq = Self::new();
 
-    Self {
-      array: Array(unsafe { ptr.cast::<[MaybeUninit<T>; U]>().read() }),
-      head: 0,
-      len: U,
+    if mem::size_of::<T>() != 0 {
+      // SAFETY:
+      // `[T; U]: AssocArraySize<Size = N>` guarantees that U corresponds
+      // to the capacity represented by N.
+      //
+      // `array` is wrapped in ManuallyDrop, so ownership of its elements
+      // is transferred into the deque.
+      unsafe {
+        ptr::copy_nonoverlapping((&raw const array).cast::<T>(), deq.ptr_mut().cast::<T>(), U);
+      }
     }
+
+    deq.len = U;
+    deq
   }
 
   /// Tries to create a deque from an array.
