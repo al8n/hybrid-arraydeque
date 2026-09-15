@@ -1,0 +1,10 @@
+[package]
+name = "integration-bin"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+authors = ["hybrid_arraydeque maintainers"]
+
+[dependencies]
+hybrid_arraydeque = { path = ".." }

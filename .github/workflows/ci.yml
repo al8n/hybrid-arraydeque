@@ -1,0 +1,415 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'README'
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+  pull_request:
+    paths-ignore:
+      - 'README'
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+  workflow_dispatch:
+  schedule: 
+    - cron: "0 1 1 * *"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  RUST_BACKTRACE: 1
+  nightly: nightly
+  stable: stable
+
+jobs:
+  # Check formatting
+  rustfmt:
+    name: rustfmt
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+            cargo_hack: latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install Rust
+      run: |
+        rustup update ${{ matrix.toolchain }} --no-self-update
+        rustup default ${{ matrix.toolchain }}
+        rustup component add rustfmt
+    - name: Check formatting
+      run: cargo fmt --all -- --check
+
+
+  # Apply clippy lints
+  clippy:
+    name: clippy
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+            cargo_hack: latest
+          - os: ubuntu-latest
+            toolchain: stable
+            cargo_hack: latest
+          - os: macos-latest
+            toolchain: stable
+            cargo_hack: latest
+          - os: windows-latest
+            toolchain: stable
+            cargo_hack: latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Install Rust
+      run: |
+        rustup update ${{ matrix.toolchain }} --no-self-update
+        rustup default ${{ matrix.toolchain }}
+        rustup component add clippy
+    - name: Install cargo-hack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-hack@${{ matrix.cargo_hack }}
+    - name: Apply clippy lints
+      run: cargo hack clippy --each-feature
+
+  # Run tests on some extra platforms
+  cross:
+    name: cross
+    strategy:
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - aarch64-linux-android
+          - aarch64-unknown-linux-musl
+          - i686-linux-android
+          - x86_64-linux-android
+          - i686-pc-windows-gnu
+          - x86_64-pc-windows-gnu
+          - i686-unknown-linux-gnu
+          - powerpc64-unknown-linux-gnu
+          # - mips64-unknown-linux-gnuabi64
+          - riscv64gc-unknown-linux-gnu
+          - wasm32-unknown-unknown
+          - wasm32-unknown-emscripten
+          - wasm32-wasip1
+          - wasm32-wasip1-threads
+          - wasm32-wasip2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache cargo build and registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cross-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cross-
+      - name: Install Rust
+        run: rustup update stable && rustup default stable
+      - name: cargo build --target ${{ matrix.target }}
+        run: |
+          rustup target add ${{ matrix.target }}
+          cargo build --target ${{ matrix.target }} 
+
+  build:
+    name: build
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: ubuntu-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: ubuntu-latest
+            toolchain: 1.85.0
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: macos-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: windows-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Cache cargo build and registry
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-build-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+    - name: Install Rust
+      run: |
+        rustup update ${{ matrix.toolchain }} --no-self-update
+        rustup default ${{ matrix.toolchain }}
+    - name: Install cargo-hack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-hack@${{ matrix.cargo_hack }}
+    - name: Run build
+      run: cargo hack build ${{ matrix.args }}
+  
+  test:
+    name: test
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: ubuntu-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: ubuntu-latest
+            toolchain: 1.85.0
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: macos-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+          - os: windows-latest
+            toolchain: stable
+            args: "--each-feature"
+            cargo_hack: latest
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Cache cargo build and registry
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-test-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-test-
+    - name: Install Rust
+      run: |
+        rustup update ${{ matrix.toolchain }} --no-self-update
+        rustup default ${{ matrix.toolchain }}
+    - name: Install cargo-hack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-hack@${{ matrix.cargo_hack }}
+    - name: Cache ~/.cargo
+      uses: actions/cache@v6
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-coverage-dotcargo
+    - name: Run test
+      run: cargo hack test ${{ matrix.args }}
+  
+  sanitizer:
+    name: sanitizer
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: nightly
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache cargo build and registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-sanitizer-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-sanitizer-
+      - name: Install Rust
+        run: |
+          rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - name: Install rust-src
+        run: rustup component add rust-src
+      - name: ASAN / LSAN / TSAN (Linux)
+        run: ci/sanitizer.sh
+
+  miri-tb:
+    name: miri-tb-${{ matrix.target }}-${{ matrix.cfg }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        toolchain:
+          - nightly
+          - 1.85.0
+          - 1.92.0
+        target:
+          - x86_64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - powerpc64-unknown-linux-gnu
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+        cfg:
+          - all_tests
+        # Exclude invalid combinations
+        exclude:
+          - os: macos-latest
+            toolchain: 1.85.0
+          - os: macos-latest
+            toolchain: 1.92.0
+          - os: ubuntu-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: i686-unknown-linux-gnu
+          - os: macos-latest
+            target: powerpc64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache cargo build and registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-miri-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miri-
+      - name: Install Rust
+        run: |
+          rustup update ${{ matrix.toolchain }} --no-self-update
+          rustup default ${{ matrix.toolchain }}
+      - name: Miri
+        run: |
+          bash ci/miri_tb.sh ${{ matrix.target }} ${{ matrix.cfg }}
+
+  miri-sb:
+    name: miri-sb-${{ matrix.target }}-${{ matrix.cfg }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+        toolchain:
+          - nightly
+          - 1.85.0
+          - 1.92.0
+        target:
+          - x86_64-unknown-linux-gnu
+          - i686-unknown-linux-gnu
+          - powerpc64-unknown-linux-gnu
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+        cfg:
+          - all_tests
+        # Exclude invalid combinations
+        exclude:
+          - os: macos-latest
+            toolchain: 1.85.0
+          - os: macos-latest
+            toolchain: 1.92.0
+          - os: ubuntu-latest
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: aarch64-apple-darwin
+          - os: macos-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: i686-unknown-linux-gnu
+          - os: macos-latest
+            target: powerpc64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache cargo build and registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-miri-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-miri-
+      - name: Install Rust
+        run: |
+          rustup update ${{ matrix.toolchain }} --no-self-update
+          rustup default ${{ matrix.toolchain }}
+      - name: Miri
+        run: |
+          bash ci/miri_sb.sh ${{ matrix.target }} ${{ matrix.cfg }}
+
+  # valgrind
+  valgrind:
+    name: valgrind
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache cargo build and registry
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ubuntu-latest-valgrind-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ubuntu-latest-valgrind-
+
+      - name: Install Rust ${{ env.stable }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ env.stable }}
+            override: true
+      - name: Install Valgrind
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y valgrind
+      # Compile tests
+      - name: cargo build integration-bin (release)
+        run: cargo build --release
+        working-directory: integration-bin
+
+      # Run with valgrind
+      - name: Run valgrind integration-bin (release)
+        run: valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=all ./target/release/integration-bin
+        working-directory: integration-bin
+      # Compile tests
+      - name: cargo build integration-bin (debug)
+        run: cargo build
+        working-directory: integration-bin
+
+      # Run with valgrind
+      - name: Run valgrind integration-bin (debug)
+        run: valgrind --error-exitcode=1 --leak-check=full --show-leak-kinds=all ./target/debug/integration-bin
+        working-directory: integration-bin
+

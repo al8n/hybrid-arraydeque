@@ -1,0 +1,61 @@
+[package]
+name = "hybrid-arraydeque"
+version = "0.3.0"
+edition = "2024"
+repository = "https://github.com/al8n/hybrid-arraydeque"
+homepage = "https://github.com/al8n/hybrid-arraydeque"
+documentation = "https://docs.rs/hybrid-arraydeque"
+description = "A fixed-capacity, stack-allocated double-ended queue (deque) backed by generic-array"
+license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+categories = ["data-structures", "embedded", "no-std", "no-std::no-alloc"]
+keywords = ["arraydeque", "generic-array", "ringbuffer", "deque", "queue"]
+
+[features]
+default = ["std"]
+alloc = []
+std = []
+
+unstable = []
+zeroize = ["hybrid-array/zeroize"]
+# faster-hex = ["generic-array/faster-hex"]
+
+serde = ["dep:serde_core"]
+
+[dependencies]
+hybrid-array = { version = "0.4", default-features = false }
+rustversion = "1"
+
+serde_core = { version = "1", optional = true, default-features = false }
+
+[dev-dependencies]
+serde = { version = "1", default-features = false }
+serde_test = "1"
+
+[profile.bench]
+opt-level = 3
+debug = false
+codegen-units = 1
+lto = 'thin'
+incremental = false
+debug-assertions = false
+overflow-checks = false
+rpath = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+rust_2018_idioms = "warn"
+single_use_lifetimes = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(all_tests)',
+  'cfg(coverage)',
+] }
+
+[workspace]
+exclude = ["integration-bin"]

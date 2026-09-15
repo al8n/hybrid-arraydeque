@@ -1,0 +1,140 @@
+name: coverage
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+  pull_request:
+    paths-ignore:
+      - 'COPYRIGHT'
+      - 'LICENSE-*'
+      - '**.md'
+      - '**.txt'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  coverage:
+    name: coverage (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: stable
+            label: rust-stable
+          - toolchain: 1.92.0
+            label: rust-1.92
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust ${{ matrix.toolchain }}
+        shell: bash
+        run: |
+          rustup toolchain install ${{ matrix.toolchain }} \
+            --component llvm-tools-preview \
+            --profile minimal
+          rustup default ${{ matrix.toolchain }}
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate coverage
+        shell: bash
+        run: |
+          mkdir -p coverage
+
+          cargo llvm-cov \
+            --all-features \
+            --workspace \
+            --cobertura \
+            --output-path coverage/cobertura.xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.label }}
+          path: coverage/cobertura.xml
+
+  doctest-coverage:
+    name: coverage (doctests)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust nightly
+        shell: bash
+        run: |
+          rustup toolchain install nightly \
+            --component llvm-tools-preview \
+            --profile minimal
+          rustup default nightly
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Generate doctest coverage
+        shell: bash
+        run: |
+          mkdir -p coverage
+
+          cargo llvm-cov \
+            --all-features \
+            --workspace \
+            --doctests \
+            --doc \
+            --cobertura \
+            --output-path coverage/cobertura.xml
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-doctests
+          path: coverage/cobertura.xml
+
+  upload-codecov:
+    name: Upload coverage to Codecov
+    needs:
+      - coverage
+      - doctest-coverage
+    runs-on: ubuntu-latest
+    if: always()
+
+    strategy:
+      fail-fast: false
+      matrix:
+        label:
+          - rust-stable
+          - rust-1.92
+          - doctests
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download ${{ matrix.label }} report
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-${{ matrix.label }}
+          path: coverage/
+
+      - name: Upload ${{ matrix.label }} to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage/cobertura.xml
+          flags: ${{ matrix.label }}
+          fail_ci_if_error: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
