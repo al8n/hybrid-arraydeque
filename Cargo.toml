@@ -1,15 +1,15 @@
 [package]
 name = "hybrid-arraydeque"
-version = "0.3.0"
+version = "0.1.3"
 edition = "2024"
 repository = "https://github.com/al8n/hybrid-arraydeque"
-homepage = "https://github.com/al8n/hybrid-arraydeque"
 documentation = "https://docs.rs/hybrid-arraydeque"
-description = "A fixed-capacity, stack-allocated double-ended queue (deque) backed by generic-array"
+description = "A fixed-capacity, stack-allocated double-ended queue (deque) backed by hybrid-array"
 license = "MIT OR Apache-2.0"
 rust-version = "1.85"
 categories = ["data-structures", "embedded", "no-std", "no-std::no-alloc"]
-keywords = ["arraydeque", "generic-array", "ringbuffer", "deque", "queue"]
+keywords = ["arraydeque", "generic-array", "ringbuffer", "deque", "hybrid-array"]
+readme = "README.md"
 
 [features]
 default = ["std"]
@@ -18,7 +18,6 @@ std = []
 
 unstable = []
 zeroize = ["hybrid-array/zeroize"]
-# faster-hex = ["generic-array/faster-hex"]
 
 serde = ["dep:serde_core"]
 

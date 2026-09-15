@@ -19,10 +19,9 @@ use core::{
   ops::{self, Index, IndexMut, Range, RangeBounds},
   ptr, slice,
 };
-use hybrid_array::Array;
 use macros::*;
 
-pub use hybrid_array::{ArraySize, typenum};
+pub use hybrid_array::{Array, ArrayN, ArraySize, AssocArraySize, typenum};
 pub use into_iter::IntoIter;
 pub use iter::Iter;
 pub use iter_mut::IterMut;
@@ -56,14 +55,13 @@ mod macros;
 /// Re-export of the `hybrid_array` crate for better interoperability.
 pub use hybrid_array as array;
 
-/// [`ArrayDeque`] with a const-generic `usize` length, using the [`ConstArraySize`] type alias for `N`.
+/// [`ArrayDeque`] with a const-generic `usize` length, using the [`AssocArraySize`] type alias for `N`.
 ///
 /// To construct from a literal array, use [`from_array`](ArrayDeque::from_array).
 ///
 /// Note that not all `N` values are valid due to limitations inherent to `typenum` and Rust. You
 /// may need to combine [Const] with other typenum operations to get the desired length.
-pub type ConstArrayDeque<T, const N: usize> =
-  ArrayDeque<T, <[T; N] as hybrid_array::AssocArraySize>::Size>;
+pub type ArrayDequeN<T, const N: usize> = ArrayDeque<T, <[T; N] as AssocArraySize>::Size>;
 
 /// A fixed-capacity, stack-allocated double-ended queue (deque) backed by [`Array`].
 ///
